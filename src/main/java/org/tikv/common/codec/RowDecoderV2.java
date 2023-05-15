@@ -38,6 +38,49 @@ public class RowDecoderV2 {
 
   private static final long SIGN_MASK = 0x8000000000000000L;
 
+  public static boolean isInteger(DataType tp) {
+    switch (tp.getType()) {
+      case TypeLonglong:
+      case TypeLong:
+      case TypeInt24:
+      case TypeShort:
+      case TypeTiny:
+        return true;
+    }
+    return false;
+  }
+
+  public static Object decodeIntegerDefaultCol(byte[] colData, DataType tp) {
+    boolean isNegative = false;
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < colData.length; i++) {
+      if (i == 0 && colData[i] == 45) {
+        isNegative = true;
+        continue;
+      }
+      int num = colData[i] - 48;
+      sb.append(num);
+    }
+
+    switch (tp.getType()) {
+      case TypeLonglong:
+      case TypeLong:
+        if (isNegative) {
+          return -Long.parseLong(sb.toString());
+        }
+        return Long.parseLong(sb.toString());
+      case TypeInt24:
+      case TypeShort:
+      case TypeTiny:
+        if (isNegative) {
+          return -Integer.parseInt(sb.toString());
+        }
+        return Integer.parseInt(sb.toString());
+      default:
+        return 0;
+    }
+  }
+  
   public static Object decodeCol(byte[] colData, DataType tp) {
     switch (tp.getType()) {
       case TypeLonglong:

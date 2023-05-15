@@ -188,7 +188,7 @@ public class TiColumnInfo implements Serializable {
     return isPrimaryKey;
   }
 
-  String getDefaultValue() {
+  public String getDefaultValue() {
     return defaultValue;
   }
 
@@ -198,7 +198,7 @@ public class TiColumnInfo implements Serializable {
 
   // Default value use to stored in DefaultValue field, but now, bit type default value will store
   // in DefaultValueBit for fix bit default value decode/encode bug.
-  String getOriginDefaultValue() {
+  public String getOriginDefaultValue() {
     if (this.getType().getType() == MySQLType.TypeBit
         && originDefaultValue != null
         && defaultValueBit != null) {
