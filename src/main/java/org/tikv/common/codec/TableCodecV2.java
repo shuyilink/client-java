@@ -70,14 +70,13 @@ public class TableCodecV2 {
         // current col is null, nothing should be added to decodedMap
         continue;
       }
-      
       if (!searchResult.notFound) {
         // corresponding column should be found
         assert (searchResult.idx != -1);
         byte[] colData = rowV2.getData(searchResult.idx);
         Object d = RowDecoderV2.decodeCol(colData, col.getType());
         decodedDataMap.put(col.getId(), d);
-      }else{
+      } else {
         String defaultValue = col.getOriginDefaultValue();
         if (defaultValue != null && !defaultValue.isEmpty()) {
           byte[] colData = defaultValue.getBytes();
@@ -88,6 +87,7 @@ public class TableCodecV2 {
           }
           Object d = RowDecoderV2.decodeCol(colData, col.getType());
           decodedDataMap.put(col.getId(), d);
+        }
       }
     }
 

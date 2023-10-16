@@ -80,7 +80,7 @@ public class RowDecoderV2 {
         return 0;
     }
   }
-  
+
   public static Object decodeCol(byte[] colData, DataType tp) {
     switch (tp.getType()) {
       case TypeLonglong:

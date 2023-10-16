@@ -513,6 +513,7 @@ public class Codec {
       int minute = (hms >> 6) & ((1 << 6) - 1);
       int hour = hms >> 12;
       int microsec = (int) (packed % (1 << 24));
+//      int microsec = (int) (packed % (1 << 24));
 
       return createExtendedDateTime(tz, year, month, day, hour, minute, second, microsec);
     }
@@ -558,8 +559,8 @@ public class Codec {
         }
       }
       try {
-        DateTime dateTime =
-            new DateTime(year, month, day, hour, minute, second, microsec / 1000, tz);
+        int millis = Math.min((microsec / 1000), 999);
+        DateTime dateTime = new DateTime(year, month, day, hour, minute, second, millis, tz);
         return new ExtendedDateTime(dateTime, microsec % 1000);
       } catch (IllegalInstantException e) {
         LocalDateTime localDateTime =
