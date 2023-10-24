@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -129,6 +130,8 @@ public class Catalog implements AutoCloseable {
     private final CatalogTransaction transaction;
     private final long currentVersion;
 
+    private final Logger logger = LoggerFactory.getLogger(CatalogCache.class);
+
     private CatalogCache(CatalogTransaction transaction, String dbPrefix, boolean loadTables) {
       this.transaction = transaction;
       this.dbPrefix = dbPrefix;
@@ -179,6 +182,23 @@ public class Catalog implements AutoCloseable {
     }
 
     private Map<String, TiTableInfo> loadTables(TiDBInfo db) {
+      Map<TiDBInfo, Map<String, TiTableInfo>> globalTableCache = MetaCache.getTableCache();
+      if (globalTableCache != null && globalTableCache.get(db) != null) {
+        logger.info("---------loadTables from cache");
+        return globalTableCache.get(db);
+      }
+
+      ReentrantLock mutex = MetaCache.getTableMutex();
+      mutex.lock();
+      globalTableCache = MetaCache.getTableCache();
+      if (globalTableCache != null && globalTableCache.get(db) != null) {
+        logger.info("---------loadTables from cache 2");
+        mutex.unlock();
+        return globalTableCache.get(db);
+      }
+      logger.info(
+          "---------loadTables from origin {}",
+          globalTableCache == null ? 0 : globalTableCache.size());
       List<TiTableInfo> tables = transaction.getTables(db.getId());
       ImmutableMap.Builder<String, TiTableInfo> builder = ImmutableMap.builder();
       for (TiTableInfo table : tables) {
@@ -186,10 +206,30 @@ public class Catalog implements AutoCloseable {
       }
       Map<String, TiTableInfo> tableMap = builder.build();
       tableCache.put(db, tableMap);
+      MetaCache.setTableCache(tableCache);
+      logger.info("---------loadTables init cache succeed");
+      mutex.unlock();
       return tableMap;
     }
 
     private Map<String, TiDBInfo> loadDatabases(boolean loadTables) {
+      HashMap<String, TiDBInfo> dbCache = (HashMap<String, TiDBInfo>) MetaCache.getDBCache();
+      if (dbCache != null) {
+        logger.info("---------loadDatabases from cache");
+        return dbCache;
+      }
+
+      ReentrantLock mutex = MetaCache.getDBMutex();
+      mutex.lock();
+
+      dbCache = (HashMap<String, TiDBInfo>) MetaCache.getDBCache();
+      if (dbCache != null) {
+        logger.info("---------loadDatabases from cache 2");
+        mutex.unlock();
+        return dbCache;
+      }
+
+      logger.info("---------loadDatabases from origin");
       HashMap<String, TiDBInfo> newDBCache = new HashMap<>();
 
       List<TiDBInfo> databases = transaction.getDatabases();
@@ -201,6 +241,9 @@ public class Catalog implements AutoCloseable {
               loadTables(newDBInfo);
             }
           });
+
+      MetaCache.setDBCache(newDBCache);
+      mutex.unlock();
       return newDBCache;
     }
   }

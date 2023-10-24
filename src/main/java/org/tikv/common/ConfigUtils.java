@@ -120,14 +120,16 @@ public class ConfigUtils {
   public static final String TIFLASH_ENABLE = "tiflash.enable";
   public static final String TIKV_WARM_UP_ENABLE = "tikv.warm_up.enable";
   public static final String DEF_PD_ADDRESSES = "127.0.0.1:2379";
-  public static final String DEF_TIMEOUT = "200ms";
+  public static final String DEF_TIMEOUT = "2000ms";
   public static final String DEF_TIKV_GRPC_INGEST_TIMEOUT = "200s";
-  public static final String DEF_FORWARD_TIMEOUT = "300ms";
+  public static final String DEF_FORWARD_TIMEOUT = "3000ms";
   public static final String DEF_TIKV_GRPC_WARM_UP_TIMEOUT = "5000ms";
   public static final String DEF_TIKV_PD_FIRST_GET_MEMBER_TIMEOUT = "10000ms";
-  public static final String DEF_SCAN_TIMEOUT = "20s";
-  public static final int DEF_CHECK_HEALTH_TIMEOUT = 100;
-  public static final int DEF_HEALTH_CHECK_PERIOD_DURATION = 300;
+  public static final String DEF_SCAN_TIMEOUT = "60s";
+  public static final int DEF_CHECK_HEALTH_TIMEOUT = 1000;
+  public static final int DEF_HEALTH_CHECK_PERIOD_DURATION = 3000;
+
+  //  public static final int DEF_SCAN_BATCH_SIZE = 5120;
   public static final int DEF_SCAN_BATCH_SIZE = 10240;
   public static final int DEF_MAX_FRAME_SIZE = 268435456 * 2; // 256 * 2 MB
   public static final int DEF_INDEX_SCAN_BATCH_SIZE = 20000;

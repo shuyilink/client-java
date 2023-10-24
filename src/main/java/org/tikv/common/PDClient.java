@@ -691,6 +691,7 @@ public class PDClient extends AbstractGRPCClient<PDBlockingStub, PDFutureStub>
     this.timeout = conf.getPdFirstGetMemberTimeout();
     for (URI u : pdAddrs) {
       logger.info("get members with pd " + u + ": start");
+      // todo: add cache here
       resp = getMembers(u);
       logger.info("get members with pd " + u + ": end");
       if (resp != null) {
@@ -702,6 +703,7 @@ public class PDClient extends AbstractGRPCClient<PDBlockingStub, PDFutureStub>
     }
 
     this.timeout = originTimeout;
+    // todo: fix null pointer
     checkNotNull(resp, "Failed to init client for PD cluster.");
     long clusterId = resp.getHeader().getClusterId();
     header = RequestHeader.newBuilder().setClusterId(clusterId).build();

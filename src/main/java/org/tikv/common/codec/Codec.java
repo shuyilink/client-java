@@ -513,7 +513,7 @@ public class Codec {
       int minute = (hms >> 6) & ((1 << 6) - 1);
       int hour = hms >> 12;
       int microsec = (int) (packed % (1 << 24));
-//      int microsec = (int) (packed % (1 << 24));
+      //      int microsec = (int) (packed % (1 << 24));
 
       return createExtendedDateTime(tz, year, month, day, hour, minute, second, microsec);
     }

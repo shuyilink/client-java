@@ -22,6 +22,8 @@ import static java.util.Objects.requireNonNull;
 import com.google.protobuf.ByteString;
 import java.util.Iterator;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.tikv.common.TiConfiguration;
 import org.tikv.common.exception.GrpcException;
 import org.tikv.common.exception.TiClientInternalException;
@@ -43,6 +45,8 @@ public abstract class ScanIterator implements Iterator<Kvrpcpb.KvPair> {
   protected Key endKey;
   protected boolean hasEndKey;
   protected boolean processingLastBatch = false;
+
+  private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
   ScanIterator(
       TiConfiguration conf,
@@ -76,40 +80,48 @@ public abstract class ScanIterator implements Iterator<Kvrpcpb.KvPair> {
     if (startKey == null) {
       return true;
     }
+
     try {
-      TiRegion region = loadCurrentRegionToCache();
-      ByteString curRegionEndKey = region.getEndKey();
-      // currentCache is null means no keys found, whereas currentCache is empty means no values
-      // found. The difference lies in whether to continue scanning, because chances are that
-      // an empty region exists due to deletion, region split, e.t.c.
-      // See https://github.com/pingcap/tispark/issues/393 for details
-      if (currentCache == null) {
-        return true;
-      }
-      index = 0;
-      Key lastKey = Key.EMPTY;
-      // Session should be single-threaded itself
-      // so that we don't worry about conf change in the middle
-      // of a transaction. Otherwise, below code might lose data
-      if (currentCache.size() < limit) {
-        startKey = curRegionEndKey;
-        lastKey = Key.toRawKey(curRegionEndKey);
-      } else if (currentCache.size() > limit) {
-        throw new IndexOutOfBoundsException(
-            "current cache size = "
-                + currentCache.size()
-                + ", larger than "
-                + conf.getScanBatchSize());
-      } else {
-        // Start new scan from exact next key in current region
-        lastKey = Key.toRawKey(currentCache.get(currentCache.size() - 1).getKey());
-        startKey = lastKey.next().toByteString();
-      }
-      // notify last batch if lastKey is greater than or equal to endKey
-      // if startKey is empty, it indicates +∞
-      if (hasEndKey && lastKey.compareTo(endKey) >= 0 || startKey.isEmpty()) {
-        processingLastBatch = true;
-        startKey = null;
+      int retryCount = 10;
+      for (int i = 0; i < retryCount; i++) {
+        try {
+          TiRegion region = loadCurrentRegionToCache();
+          ByteString curRegionEndKey = region.getEndKey();
+          // currentCache is null means no keys found, whereas currentCache is empty means no values
+          // found. The difference lies in whether to continue scanning, because chances are that
+          // an empty region exists due to deletion, region split, e.t.c.
+          // See https://github.com/pingcap/tispark/issues/393 for details
+          if (currentCache == null) {
+            return true;
+          }
+          index = 0;
+          Key lastKey = Key.EMPTY;
+          // Session should be single-threaded itself
+          // so that we don't worry about conf change in the middle
+          // of a transaction. Otherwise, below code might lose data
+          if (currentCache.size() < limit) {
+            startKey = curRegionEndKey;
+            lastKey = Key.toRawKey(curRegionEndKey);
+          } else if (currentCache.size() > limit) {
+            throw new IndexOutOfBoundsException(
+                "current cache size = "
+                    + currentCache.size()
+                    + ", larger than "
+                    + conf.getScanBatchSize());
+          } else {
+            // Start new scan from exact next key in current region
+            lastKey = Key.toRawKey(currentCache.get(currentCache.size() - 1).getKey());
+            startKey = lastKey.next().toByteString();
+          }
+          // notify last batch if lastKey is greater than or equal to endKey
+          // if startKey is empty, it indicates +∞
+          if (hasEndKey && lastKey.compareTo(endKey) >= 0 || startKey.isEmpty()) {
+            processingLastBatch = true;
+            startKey = null;
+          }
+        } catch (Exception e) {
+          logger.info("-----cacheLoadFails failed {} {} ", i, e.toString());
+        }
       }
     } catch (Exception e) {
       throw new TiClientInternalException("Error scanning data from region.", e);
