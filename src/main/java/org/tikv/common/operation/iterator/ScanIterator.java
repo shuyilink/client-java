@@ -119,7 +119,11 @@ public abstract class ScanIterator implements Iterator<Kvrpcpb.KvPair> {
             processingLastBatch = true;
             startKey = null;
           }
+          break;
         } catch (Exception e) {
+          if (i == retryCount - 1) {
+            throw new TiClientInternalException("Error scanning data from region t.", e);
+          }
           logger.info("-----cacheLoadFails failed {} {} ", i, e.toString());
         }
       }
