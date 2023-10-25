@@ -81,54 +81,50 @@ public abstract class ScanIterator implements Iterator<Kvrpcpb.KvPair> {
       return true;
     }
 
-    try {
-      int retryCount = 10;
-      for (int i = 0; i < retryCount; i++) {
-        try {
-          TiRegion region = loadCurrentRegionToCache();
-          ByteString curRegionEndKey = region.getEndKey();
-          // currentCache is null means no keys found, whereas currentCache is empty means no values
-          // found. The difference lies in whether to continue scanning, because chances are that
-          // an empty region exists due to deletion, region split, e.t.c.
-          // See https://github.com/pingcap/tispark/issues/393 for details
-          if (currentCache == null) {
-            return true;
-          }
-          index = 0;
-          Key lastKey = Key.EMPTY;
-          // Session should be single-threaded itself
-          // so that we don't worry about conf change in the middle
-          // of a transaction. Otherwise, below code might lose data
-          if (currentCache.size() < limit) {
-            startKey = curRegionEndKey;
-            lastKey = Key.toRawKey(curRegionEndKey);
-          } else if (currentCache.size() > limit) {
-            throw new IndexOutOfBoundsException(
-                "current cache size = "
-                    + currentCache.size()
-                    + ", larger than "
-                    + conf.getScanBatchSize());
-          } else {
-            // Start new scan from exact next key in current region
-            lastKey = Key.toRawKey(currentCache.get(currentCache.size() - 1).getKey());
-            startKey = lastKey.next().toByteString();
-          }
-          // notify last batch if lastKey is greater than or equal to endKey
-          // if startKey is empty, it indicates +∞
-          if (hasEndKey && lastKey.compareTo(endKey) >= 0 || startKey.isEmpty()) {
-            processingLastBatch = true;
-            startKey = null;
-          }
-          break;
-        } catch (Exception e) {
-          if (i == retryCount - 1) {
-            throw new TiClientInternalException("Error scanning data from region t.", e);
-          }
-          logger.info("-----cacheLoadFails failed {} {} ", i, e.toString());
+    int retryCount = 10;
+    for (int i = 0; i < retryCount; i++) {
+      try {
+        TiRegion region = loadCurrentRegionToCache();
+        ByteString curRegionEndKey = region.getEndKey();
+        // currentCache is null means no keys found, whereas currentCache is empty means no values
+        // found. The difference lies in whether to continue scanning, because chances are that
+        // an empty region exists due to deletion, region split, e.t.c.
+        // See https://github.com/pingcap/tispark/issues/393 for details
+        if (currentCache == null) {
+          return true;
         }
+        index = 0;
+        Key lastKey = Key.EMPTY;
+        // Session should be single-threaded itself
+        // so that we don't worry about conf change in the middle
+        // of a transaction. Otherwise, below code might lose data
+        if (currentCache.size() < limit) {
+          startKey = curRegionEndKey;
+          lastKey = Key.toRawKey(curRegionEndKey);
+        } else if (currentCache.size() > limit) {
+          throw new IndexOutOfBoundsException(
+              "current cache size = "
+                  + currentCache.size()
+                  + ", larger than "
+                  + conf.getScanBatchSize());
+        } else {
+          // Start new scan from exact next key in current region
+          lastKey = Key.toRawKey(currentCache.get(currentCache.size() - 1).getKey());
+          startKey = lastKey.next().toByteString();
+        }
+        // notify last batch if lastKey is greater than or equal to endKey
+        // if startKey is empty, it indicates +∞
+        if (hasEndKey && lastKey.compareTo(endKey) >= 0 || startKey.isEmpty()) {
+          processingLastBatch = true;
+          startKey = null;
+        }
+        return false;
+      } catch (Exception e) {
+        if (i == retryCount - 1) {
+          throw new TiClientInternalException("Error scanning data from region t.", e);
+        }
+        logger.info("-----cacheLoadFails failed {} {} ", i, e.toString());
       }
-    } catch (Exception e) {
-      throw new TiClientInternalException("Error scanning data from region.", e);
     }
     return false;
   }
